@@ -45,7 +45,7 @@ stages:
           - script: |
               ansible-playbook \
                 -i inventory.ini \
-                playbooks/deploy.yml \
+                deploy.yml \
                 --private-key $(sshKey.secureFilePath)
             displayName: Run Ansible deployment playbook
 
