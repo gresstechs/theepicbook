@@ -1,0 +1,57 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  name: Azure-Devops-Pipeline
+
+variables:
+  APP_IP: '20.164.21.101'
+
+stages:
+  - stage: Configure
+    displayName: Configure and Deploy EpicBook
+    jobs:
+      - job: AnsibleDeploy
+        displayName: Ansible Playbook Run
+        steps:
+          - checkout: self
+            displayName: Checkout app repo
+
+          - script: |
+              sudo apt-get update -y
+              sudo apt-get install -y ansible
+              ansible --version
+            displayName: Install Ansible
+
+          - task: DownloadSecureFile@1
+            name: sshKey
+            displayName: Download SSH private key
+            inputs:
+              secureFile: 'epicbook_key'
+
+          - script: chmod 600 $(sshKey.secureFilePath)
+            displayName: Set key permissions
+
+          - script: |
+              cat > inventory.ini << EOF
+              [app]
+              $(APP_IP) ansible_user=azureuser ansible_ssh_private_key_file=$(sshKey.secureFilePath) ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+              EOF
+              cat inventory.ini
+            displayName: Generate Ansible inventory
+
+          - script: |
+              ansible-playbook \
+                -i inventory.ini \
+                playbooks/deploy.yml \
+                --private-key $(sshKey.secureFilePath)
+            displayName: Run Ansible deployment playbook
+
+          - script: |
+              ansible -i inventory.ini app \
+                -m shell \
+                -a "curl -s http://localhost | head -10" \
+                --private-key $(sshKey.secureFilePath)
+            displayName: Verify EpicBook is serving
