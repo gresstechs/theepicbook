@@ -5,7 +5,6 @@
 
   vars:
     app_dir: /opt/epicbook
-    node_version: "18"
 
   tasks:
     - name: Update apt cache
@@ -16,13 +15,12 @@
       apt:
         name:
           - nginx
-          - git
           - curl
         state: present
 
-    - name: Install Node.js
+    - name: Install Node.js 18.x
       shell: |
-        curl -fsSL https://deb.nodesource.com/setup_{{ node_version }}.x | bash -
+        curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
         apt-get install -y nodejs
       args:
         executable: /bin/bash
@@ -40,18 +38,66 @@
         group: azureuser
         mode: '0755'
 
-    - name: Copy application files
-      synchronize:
-        src: "{{ playbook_dir }}/../"
+    - name: Copy all application files
+      copy:
+        src: "{{ item }}"
         dest: "{{ app_dir }}/"
-        rsync_opts:
-          - "--exclude=playbooks"
-          - "--exclude=.git"
-          - "--exclude=node_modules"
+        owner: azureuser
+        group: azureuser
+      loop:
+        - package.json
+        - package-lock.json
+        - server.js
+
+    - name: Copy config directory
+      copy:
+        src: config/
+        dest: "{{ app_dir }}/config/"
+        owner: azureuser
+        group: azureuser
+
+    - name: Copy models directory
+      copy:
+        src: models/
+        dest: "{{ app_dir }}/models/"
+        owner: azureuser
+        group: azureuser
+
+    - name: Copy routes directory
+      copy:
+        src: routes/
+        dest: "{{ app_dir }}/routes/"
+        owner: azureuser
+        group: azureuser
+
+    - name: Copy views directory
+      copy:
+        src: views/
+        dest: "{{ app_dir }}/views/"
+        owner: azureuser
+        group: azureuser
+
+    - name: Copy public directory
+      copy:
+        src: public/
+        dest: "{{ app_dir }}/public/"
+        owner: azureuser
+        group: azureuser
+
+    - name: Verify package.json exists
+      stat:
+        path: "{{ app_dir }}/package.json"
+      register: pkg_json
+
+    - name: Fail if package.json missing
+      fail:
+        msg: "package.json not found in {{ app_dir }}"
+      when: not pkg_json.stat.exists
 
     - name: Install Node dependencies
-      npm:
-        path: "{{ app_dir }}"
+      shell: cd {{ app_dir }} && npm install
+      args:
+        executable: /bin/bash
 
     - name: Start app with PM2
       become_user: azureuser
@@ -96,4 +142,4 @@
       service:
         name: nginx
         state: restarted
-        enabled: yesm
+        enabled: yes
