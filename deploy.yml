@@ -2,10 +2,8 @@
 - name: Deploy EpicBook Application
   hosts: app
   become: true
-
   vars:
     app_dir: /opt/epicbook
-
   tasks:
     - name: Update apt cache
       apt:
@@ -29,6 +27,17 @@
       npm:
         name: pm2
         global: yes
+
+    - name: Install MySQL server
+      apt:
+        name: mysql-server
+        state: present
+
+    - name: Start and enable MySQL
+      service:
+        name: mysql
+        state: started
+        enabled: yes
 
     - name: Create app directory
       file:
@@ -84,6 +93,40 @@
         owner: azureuser
         group: azureuser
 
+    - name: Copy db directory
+      copy:
+        src: db/
+        dest: "{{ app_dir }}/db/"
+        owner: azureuser
+        group: azureuser
+
+    - name: Set MySQL root password
+      shell: |
+        mysql -u root -e "ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'demo1234';"
+        mysql -u root -e "FLUSH PRIVILEGES;"
+      args:
+        executable: /bin/bash
+
+    - name: Create bookstore database
+      shell: mysql -u root -pdemo1234 -e "CREATE DATABASE IF NOT EXISTS bookstore;"
+      args:
+        executable: /bin/bash
+
+    - name: Run database schema
+      shell: mysql -u root -pdemo1234 bookstore < {{ app_dir }}/db/BuyTheBook_Schema.sql
+      args:
+        executable: /bin/bash
+
+    - name: Run author seed
+      shell: mysql -u root -pdemo1234 bookstore < {{ app_dir }}/db/author_seed.sql
+      args:
+        executable: /bin/bash
+
+    - name: Run books seed
+      shell: mysql -u root -pdemo1234 bookstore < {{ app_dir }}/db/books_seed.sql
+      args:
+        executable: /bin/bash
+
     - name: Verify package.json exists
       stat:
         path: "{{ app_dir }}/package.json"
@@ -116,7 +159,6 @@
           server {
               listen 80;
               server_name _;
-
               location / {
                   proxy_pass http://localhost:3000;
                   proxy_http_version 1.1;
