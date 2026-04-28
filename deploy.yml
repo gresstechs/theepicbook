@@ -102,8 +102,8 @@
 
     - name: Set MySQL root password
       shell: |
-        mysql -u root -e "ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'demo1234';"
-        mysql -u root -e "FLUSH PRIVILEGES;"
+        sudo mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'demo1234';"
+        sudo mysql -e "FLUSH PRIVILEGES;"
       args:
         executable: /bin/bash
 
